@@ -2,25 +2,8 @@ import argparse
 import logging
 import sys
 
-
-# Assume the following functions are defined elsewhere in your script:
-# def downloadData(url):
-#     """Downloads data from a URL and returns it as a string."""
-#     # ... implementation ...
-#     pass
-#
-# def processData(data):
-#     """Processes CSV data string into a dictionary of person tuples."""
-#     # ... implementation ...
-#     pass
-#
-# def displayPerson(person_id, person_data):
-#     """Looks up a person by ID and prints their details."""
-#     # ... implementation ...
-#     pass
-
 def setup_logger():
-    """Configures the 'assignment2' logger to write to 'errors.log'."""
+
     logger = logging.getLogger('assignment2')
     logger.setLevel(logging.ERROR)  # Set to catch ERROR level and above
 
@@ -28,12 +11,10 @@ def setup_logger():
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
 
-    # Avoid duplicate handlers if called multiple times
     if not logger.handlers:
         logger.addHandler(file_handler)
 
     return logger
-
 
 def main():
     """Main function to run the script logic."""
@@ -42,16 +23,12 @@ def main():
     parser.add_argument('url', type=str, help="The URL to download data from (required).")
     args = parser.parse_args()
 
-    # The 'url' is required; argparse handles the case where it's missing by
-    # printing an error and exiting automatically because it's a positional argument.
-
     # Setup the logger
     logger = setup_logger()
 
     # 2. Call downloadData() with exception handling
     try:
-        # Assuming downloadData function is available
-        # from your_module_name import downloadData
+
         csvData = downloadData(args.url)
     except Exception as e:
         error_message = f"An error occurred during data download: {e}"
@@ -63,8 +40,7 @@ def main():
 
     # 4. Call processData()
     try:
-        # Assuming processData function is available
-        # from your_module_name import processData
+
         personData = processData(csvData)
     except Exception as e:
         error_message = f"An error occurred during data processing: {e}"
