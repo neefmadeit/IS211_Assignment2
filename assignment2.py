@@ -63,7 +63,7 @@ def displayPerson(pid: int, personData: dict) -> None:
         print("No user found with that id")
         return
     name, bday = personData[pid]
-    print(f"Person #{pid} is {name} with a birthday of {bday.strftime('%Y%m%d')}")
+    print(f"Person #{pid} is {name} with a birthday of {bday.strftime("%Y-%m-%d")}")
 
 """Configure logger 'assignment2' to write ERROR messages to a single file."""
 
