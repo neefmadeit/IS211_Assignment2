@@ -1,101 +1,115 @@
 import argparse
-import logging
 import sys
+import logging
+from datetime import datetime, date
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
+import io
+import csv
 
-def setup_logger():
+LOG_NAME = 'assignment2'
+LOG_FILENAME = 'error.log'
 
-    logger = logging.getLogger('assignment2')
-    logger.setLevel(logging.ERROR)  # Set to catch ERROR level and above
+"""Download contents from the given URL and return it as decoded text."""
 
-    file_handler = logging.FileHandler('errors.log')
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
+def downloadData(url: str) -> str:
 
-    if not logger.handlers:
-        logger.addHandler(file_handler)
+    with urlopen(url) as resp:
+        charset = resp.headers.get_content_charset() or 'utf-8'
+        data = resp.read()
+        try:
+            return data.decode(charset)
+        except UnicodeDecodeError:
+            return data.decode('latin-1')
 
-    return logger
+"""Process the CSV file"""
 
-def main():
-    """Main function to run the script logic."""
-    # 1. Use argparse for the URL parameter
-    parser = argparse.ArgumentParser(description="Download and process data from a URL.")
-    parser.add_argument('url', type=str, help="The URL to download data from (required).")
+def processData(file_content: str) -> dict:
+
+    logger = logging.getLogger(LOG_NAME)
+    personData = {}
+
+    reader = csv.reader(io.StringIO(file_content))
+    for line_num, row in enumerate(reader, start=1):
+        if not row:
+            continue
+        if len(row) < 3:
+            continue
+
+        raw_id = row[0].strip()
+        name = row[1].strip()
+        bday_str = row[2].strip()
+
+        try:
+            pid = int(raw_id)
+        except ValueError:
+            continue
+
+        try:
+            bday_dt = datetime.strptime(bday_str, "%d/%m/%Y").date()
+        except ValueError:
+            logger.error(f"Error processing line #{line_num} for ID #{pid}")
+            continue
+
+        personData[pid] = (name, bday_dt)
+
+    return personData
+
+""" Prints person info or 'No user found with that id'. """
+
+def displayPerson(pid: int, personData: dict) -> None:
+
+    if pid not in personData:
+        print("No user found with that id")
+        return
+    name, bday = personData[pid]
+    print(f"Person #{pid} is {name} with a birthday of {bday.strftime('%Y%m%d')}")
+
+"""Configure logger 'assignment2' to write ERROR messages to a single file."""
+
+def _configure_logging() -> None:
+
+    logger = logging.getLogger(LOG_NAME)
+    logger.setLevel(logging.ERROR)
+
+    if not any(isinstance(h, logging.FileHandler) for h in logger.handlers):
+        fh = logging.FileHandler(LOG_FILENAME, mode='w', encoding='utf-8')
+        fh.setLevel(logging.ERROR)
+        fh.setFormatter(logging.Formatter('%(message)s'))
+        logger.addHandler(fh)
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Download, process, and query person data from a CSV URL."
+    )
+    # URL is required (no default)
+    parser.add_argument('url', help='URL pointing to the CSV file')
     args = parser.parse_args()
 
-    # Setup the logger
-    logger = setup_logger()
-
-    # 2. Call downloadData() with exception handling
+    # Download (catch and report any errors)
     try:
-
         csvData = downloadData(args.url)
-    except Exception as e:
-        error_message = f"An error occurred during data download: {e}"
-        print(error_message, file=sys.stderr)
-        logger.error(error_message)
-        sys.exit(1)  # Exit the program on failure
+    except (HTTPError, URLError, ValueError, OSError) as e:
+        print(f"Error fetching data: {e}")
+        sys.exit(1)
 
-    # 3. Logger is set up by setup_logger()
+    # Configure logging and process
+    _configure_logging()
+    personData = processData(csvData)
 
-    # 4. Call processData()
-    try:
-
-        personData = processData(csvData)
-    except Exception as e:
-        error_message = f"An error occurred during data processing: {e}"
-        print(error_message, file=sys.stderr)
-        logger.error(error_message)
-        sys.exit(1)  # Exit the program on failure
-
-    # 5. Ask the user for an ID to lookup
+    # Interactive loop
     while True:
-        user_input = input("Enter an ID to look up (or a negative number/0 to exit): ")
         try:
-            person_id = int(user_input)
-            if person_id <= 0:
-                print("Exiting program.")
-                break
-            else:
-                # Assuming displayPerson function is available
-                # from your_module_name import displayPerson
-                displayPerson(person_id, personData)
+            user_in = input("Please enter an ID to lookup: ").strip()
+            pid = int(user_in)
         except ValueError:
-            print(f"Invalid input: '{user_input}'. Please enter a valid integer ID.")
-        except Exception as e:
-            # Catch exceptions that might occur within displayPerson (e.g., ID not found)
-            error_message = f"An unexpected error occurred while displaying person: {e}"
-            print(error_message, file=sys.stderr)
-            logger.error(error_message)
-            # Continue the loop after an error in display
+            print("Please enter a valid integer ID.")
+            continue
 
+        if pid <= 0:
+            break
 
-if __name__ == "__main__":
-    # Placeholder functions to allow the code to run for demonstration
-    def downloadData(url):
-        print(f"Downloading from {url} (Simulated success)")
-        return "id,name,age\n1,Alice,30\n2,Bob,25\n3,Charlie,35"
+        displayPerson(pid, personData)
 
-
-    def processData(data):
-        print("Processing data (Simulated success)")
-        lines = data.strip().split('\n')[1:]
-        person_dict = {}
-        for line in lines:
-            try:
-                p_id, name, age = line.split(',')
-                person_dict[int(p_id)] = (name, int(age))
-            except ValueError:
-                continue
-        return person_dict
-
-
-    def displayPerson(person_id, person_data):
-        person = person_data.get(person_id)
-        if person:
-            print(f"ID {person_id}: Name: {person[0]}, Age: {person[1]}")
-        else:
-            raise ValueError(f"ID {person_id} not found.")
-
-
+if __name__ == '__main__':
     main()
